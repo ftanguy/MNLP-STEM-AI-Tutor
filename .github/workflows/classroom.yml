@@ -1,0 +1,44 @@
+name: Autograding Tests
+'on':
+- push
+- repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: PDF Format Test
+      id: pdf-format-test
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: PDF Format Test
+        setup-command: ''
+        command: python _test/pdf_report_validator.py
+        input: ''
+        expected-output: The final report exists.
+        comparison-method: contains
+        timeout: 10
+    - name: Training Code Test
+      id: training-code-test
+      uses: classroom-resources/autograding-io-grader@v1
+      with:
+        test-name: Training Code Test
+        setup-command: ''
+        command: python _test/train_code_validator.py
+        input: ''
+        expected-output: The training code exists.
+        comparison-method: contains
+        timeout: 10
+    - name: Autograding Reporter
+      uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        PDF-FORMAT-TEST_RESULTS: "${{steps.pdf-format-test.outputs.result}}"
+        TRAINING-CODE-TEST_RESULTS: "${{steps.training-code-test.outputs.result}}"
+      with:
+        runners: pdf-format-test,training-code-test
