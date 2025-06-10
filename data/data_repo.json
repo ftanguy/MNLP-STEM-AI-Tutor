@@ -1,5 +1,5 @@
 {
-    "dpo_dataset_repo_id": "<HF_USERNAME>/MNLP_M3_dpo_dataset",
+    "dpo_dataset_repo_id": "Alixpapadatos/MNLP_M3_dpo_dataset",
     "mcqa_dataset_repo_id": "<HF_USERNAME>/MNLP_M3_mcqa_dataset",
     "quantized_mcqa_dataset_repo_id": "<HF_USERNAME>/MNLP_M3_quantized_dataset",
     "rag_mcqa_dataset_repo_id": "<HF_USERNAME>/MNLP_M3_rag_dataset"
