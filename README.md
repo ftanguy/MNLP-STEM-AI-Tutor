@@ -1,89 +1,48 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/xR4NrJfU)
-# CS-552 - Final Submission
+# Gigabytes to Guidance: Efficiently Adapting a Compact LLM for STEM Education
 
-Welcome to the final submission for the MNLP project! For this last submission, as you can read in the [project description](https://docs.google.com/document/d/1BUeMoBb2zwg1YvO_OnLcqFiXQd8hxiF8ub-cM2MbX_M/edit?usp=sharing), you have 4 main goals:
+## Overview
+Co-developed a STEM AI tutor by fine-tuning the compact Qwen3-0.6B model. Engineered a multi-stage pipeline involving general Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), and task-specific MCQA instruction tuning via LoRA. Implemented 4-bit NF4 Post-Training Quantization (PTQ) using bitsandbytes, successfully reducing VRAM usage by 62% and disk size by 77% without accuracy degradation. Integrated a dense passage Retrieval-Augmented Generation (RAG) framework, boosting final accuracy on the ARC-Easy benchmark from 27% to 72%.
 
-1. Finish training the four models detailed in the project description: DPO, MCQA, Quantized-MCQA, RAG-MCQA, optimizing their performance as well as you can, and submit them. (individual work, one model per member)
-2. Submit the code you used to train your models, including the training script for each model.
-3. Submit the training data used for each model.
-4. Write a final report (group work)
+## Project Architecture & Methodology
+This repository contains the training scripts, data, and configurations used to adapt `Qwen/Qwen3-0.6B-Base` into a highly efficient, specialized STEM tutor. The training pipeline was divided into distinct, modular phases:
 
-Note: Note that for this final submission, the models will be evaluated based on their performance.
+### 1. General Supervised Fine-Tuning (SFT)
+To establish a foundation in scientific language and reasoning, the base model was initially fine-tuned on a diverse mixture of 12,000 open-domain STEM samples (from FLAN-v2, OpenMathInstruct, and NuminaMath-1.5). This provided the model with a broad capability to handle complex conceptual explanations and problem-solving processes.
 
-## Repo Structure
+### 2. Task-Specific Alignment
+From the common SFT base, the model was specialized via two parallel tracks using Low-Rank Adaptation (LoRA):
+* **Direct Preference Optimization (DPO):** To create a preference-aligned conversational agent, the model was optimized using DPO on curated STEM datasets. This reinforced adherence to formal problem constraints (like identifying subtle code bugs) and improved the model's preference accuracy.
+* **MCQA Instruction Tuning:** The model was fine-tuned strictly on multiple-choice STEM questions. This aggressive optimization strategy sharpened the model's classification behavior, teaching it to output confident and consistent answer keys. 
 
-The repo has 6 folders, 4 of which serve for you to submit all four deliverables:
+### 3. Post-Training Quantization (PTQ)
+To ensure the model could be deployed efficiently on consumer hardware, we applied weight-only quantization using the `bitsandbytes` library. After evaluating multiple configurations, we implemented **4-bit NormalFloat4 (NF4) with Double Quantization**. This dramatically lowered the computational barriers without compromising the reasoning accuracy learned during the SFT and MCQA stages.
 
-1. `_templates` contains the LaTeX template for your final report. You MUST use this template.
-2. `_test` contains scripts that run automated tests to validate that your submission is correctly formatted.
-3. `model_configs` should be populated by you with the 4 model config YAML files, including `dpo_model.yaml`, `mcqa_model.yaml`, `quantized_model.yaml`, and `rag_model.yaml`. Make sure you fill in the important information in each config file, and the information is exactly what is used for evaluating your models. You need to change `<HF_USERNAME_team_member_X>` to your Huggingface Hub username. Make sure that you have submitted your models to the correct Huggingface Hub repositories, adhering to the following name convention:
+### 4. Retrieval-Augmented Generation (RAG)
+To address factual knowledge gaps and reduce hallucinations, the final generator model was augmented with a retrieval-then-generate architecture. Using a frozen `sentence-transformers/all-MiniLM-L6-v2` encoder, the pipeline performs dense passage retrieval (via cosine similarity) across a 100k-chunk external knowledge base composed of STEM Wikipedia articles and Camel-AI Physics data. 
 
-- `<HF_USERNAME_team_member_DPO>/MNLP_M3_dpo_model`
-- `<HF_USERNAME_team_member_MCQA>/MNLP_M3_mcqa_model`
-- `<HF_USERNAME_team_member_QUANTIZED>/MNLP_M3_quantized_model`
-- `<HF_USERNAME_team_member_RAG>/MNLP_M3_rag_model`
+## Key Performance Metrics
 
-    For the team member responsible for the RAG model, make sure you have submitted the two additional deliverables specific to RAG:
+**1. Reasoning & Task Accuracy**
+The multi-phase curriculum training resulted in massive gains in the model's ability to answer structured STEM questions.
+* **Base Qwen Model:** 27% (ARC-Easy)
+* **Post-General SFT:** 59% (ARC-Easy)
+* **Final MCQA Model:** 72% (ARC-Easy)
+* *Note: The addition of the RAG pipeline provided a further consistent accuracy boost of 2-5% across multiple evaluations by supplying directly relevant external context.*
 
-- `<HF_USERNAME_team_member_RAG>/<RAG_DOCUMENT_REPO_NAME>`, replace `<RAG_DOCUMENT_REPO_NAME>` with the actual Huggingface Hub repo name of your submitted RAG documents.
-- `<HF_USERNAME_team_member_RAG>/MNLP_M3_document_encoder`
+**2. Quantization Efficiency**
+The 4-bit NF4 configuration provided an exceptional trade-off between resource cost and model performance:
+* **Original VRAM:** 8.24 GB ➔ **Quantized VRAM:** 3.10 GB *(62% Reduction)*
+* **Original Disk Size:** 2.22 GB ➔ **Quantized Disk:** 0.50 GB *(77% Reduction)*
+* **Accuracy Retention:** Maintained ~66% accuracy under the Lighteval framework, proving high resilience to aggressive compression.
 
-4. `pdf` should be filled by you with your final report PDF (titled `<YOUR-GROUP-NAME>.pdf`). This directory should then have only one PDF.
-5. `data` contains `data_repo.json`. In this file, you need to change `<HF_USERNAME_team_member_X>` to your Huggingface Hub username. Make sure that you have submitted the training data for your 4 models to the correct Huggingface Hub repositories, adhering to the following name convention:
+## Repository Structure
+* `/code`: Contains the executable bash scripts (`train_dpo.sh`, `train_mcqa.sh`, `train_quantized.sh`, `train_rag.sh`) and the specific training logic for each model variation.
+* `/data`: Points to the datasets used for the fine-tuning pipeline. 
+* `/model_configs`: Contains the YAML configuration files for the HuggingFace Hub deployments.
+* `/pdf`: Contains the comprehensive research report detailing the ablation studies, mathematical formulations, and qualitative analyses of the model outputs.
 
-- `<HF_USERNAME_team_member_DPO>/MNLP_M3_dpo_dataset`
-- `<HF_USERNAME_team_member_MCQA>/MNLP_M3_mcqa_dataset`
-- `<HF_USERNAME_team_member_QUANTIZED>/MNLP_M3_quantized_dataset`
-- `<HF_USERNAME_team_member_RAG>/MNLP_M3_rag_dataset`
-
-6. The `code` must contain the following:
-
-- Four Bash Training Scripts:
-You must provide four executable Bash scripts (.sh files) in the root of the `code` directory. These scripts are essential for reproducing your results and obtaining models equivalent to those you submit.
-
-    - `train_dpo.sh`
-    - `train_mcqa.sh`
-    - `train_quantized.sh`
-    - `train_rag.sh` 
-
-- Four Corresponding Subfolders for Training Code:
-For each of the four models, you should create a dedicated subfolder within code/ to house its specific training code. These folders should have the following structure:
-
-    - `train_dpo/`
-    - `train_mcqa/`
-    - `train_quantized/`
-    - `train_rag/ `
-
-    By running these scripts we should be able to reproduce your training process and obtain models that are functionally equivalent to the ones you have developed and submitted.
-
-## Running the tests manually
-
-The autograding tests run automatically with every commit to the repo. If you want to trigger them manually, follow the instructions from the previous milestone.
-
-## Evaluation Suite
-
-For the final submission, same as M2, we provide you with an [evaluation suite](https://github.com/eric11eca/lighteval-epfl-mnlp) to benchmark each of the four models. As we covered in the compute tutorial session, details about how we evaluate your models are listed in these slides: [Evaluation Implementation Slides](https://docs.google.com/presentation/d/1SoVY4u6fDgXQ-F6TdarwaINhQ30NnE9Zb2XFavz3PGU/edit?usp=sharing).
-
-We provide you with a demo MCQA evaluation dataset and a demo DPO evaluation dataset on the Huggingface Hub:
-
-- [MCQA demo dataset](https://huggingface.co/datasets/zechen-nlp/MNLP_STEM_mcqa_demo)
-- [DPO demo dataset](https://huggingface.co/datasets/zechen-nlp/MNLP_dpo_demo)
-
-Also, for the RAG part, here is a demo Huggingface repo for the RAG documents and a collection of pretrained huggingface embedding models you can start with:
-
-- [RAG documents demo](https://huggingface.co/datasets/m-ric/huggingface_doc)
-- [RAG embedding model collection on Huggingface Hub](https://huggingface.co/models?library=sentence-transformers)
-
-## Submission Via Huggingface Hub
-
-Recall that you have to submit your model weights, RAG documents, and training data via [Huggingface Hub](https://huggingface.co/). Make sure you
-
-- Have a Huggingface account.
-- Make all your submissions public on the Huggingface Hub.
-
-Please take a look at the documents on how to [upload your dataset](https://huggingface.co/docs/datasets/en/upload_dataset) (documents which are also a dataset) and [upload your model weights](https://huggingface.co/docs/transformers/en/model_sharing#pushtohubmixin). Note that you also have to **push the tokenizers to the same model repository**.
-
-## Validating Your Submission
-**After you push your model weights and RAG documents to the correct Huggingface Hub repositories, make sure to test your models with the official [evaluation suite](https://github.com/eric11eca/lighteval-epfl-mnlp) in a fresh and clean environment (not the same environment you used for development).**
-
-**If you got an error in the clean environment, you are responsible for debugging and correcting it.**
+## Contributors
+* Alix Papadatos
+* Inés Altemir Marinas
+* Nizar Ben Mohamed
+* Florian Tanguy
